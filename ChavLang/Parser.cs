@@ -14,7 +14,9 @@ namespace ChavLang
         private readonly Regex _functionDefintionSyntaxRegex = new Regex(@"^TypeKeyword\sIdentifier\sOpenParen\s((TypeKeyword\sIdentifier)(\sComma\sTypeKeyword\sIdentifier)*\s)?CloseParen\sOpenBrace");
         private readonly Regex _closeBraceSyntaxRegex = new Regex("^CloseBrace");
 
+        /// <summary>Dictionary that specifies which syntax regexes are valid for a particular location.</summary>
         private readonly Dictionary<Location, List<Regex>> _validSyntaxForLocation;
+        /// <summary>Dictionary that maps syntax regexes to the methods that handle the translation of input tokens to output nodes</summary>
         private readonly Dictionary<Regex, Action<int>> _syntaxHandlers;
 
         private enum Location
@@ -25,20 +27,29 @@ namespace ChavLang
 
         private readonly List<TokenBase> _tokens;
         private readonly List<TokenBase> _remainingTokens;
-        private readonly ProgramNode _program;
         private NodeBase _currentNode;
         private readonly Stack<Location> _locationStack;
 
+        /// <summary>
+        /// The program that was generated from the given tokens.
+        /// </summary>
         public ProgramNode Program
         {
-            get => _program;
+            get;
+            private set;
         }
 
+        /// <summary>
+        /// Creates a new Parser instance and translates the given tokens.
+        /// </summary>
+        /// <param name="tokens"></param>
         public Parser(IEnumerable<TokenBase> tokens)
         {
+            // build the list of valid syntax
             _validSyntaxForLocation = new Dictionary<Location, List<Regex>>()
             {
                 {
+                    // PROGRAM
                     // a program can contain function definitions and variable definitions
                     Location.Program,
                     new List<Regex>
@@ -48,6 +59,8 @@ namespace ChavLang
                     }
                 },
                 {
+                    // FUNCTION
+                    // a function can contain a close brace (to end the function), or a variable definition
                     Location.Function,
                     new List<Regex>
                     {
@@ -57,22 +70,26 @@ namespace ChavLang
                 },
             };
 
+            // map syntax regexes to function definitions that parse the tokens on a match
             _syntaxHandlers = new Dictionary<Regex, Action<int>>
             {
-                { _functionDefintionSyntaxRegex, ParseFunctionDefinition },
-                { _variableDefinitionSyntaxRegex, ParseVariableDefinition },
-                { _closeBraceSyntaxRegex, ParseCloseBrace },
+                { _functionDefintionSyntaxRegex,            ParseFunctionDefinition },
+                { _variableDefinitionSyntaxRegex,           ParseVariableDefinition },
+                { _closeBraceSyntaxRegex,                   ParseCloseBrace },
             };
 
             _tokens = new List<TokenBase>(tokens);
             _remainingTokens = new List<TokenBase>(_tokens);
-            _program = new ProgramNode();
-            _currentNode = _program;
+            Program = new ProgramNode();
+            _currentNode = Program;
             _locationStack = new Stack<Location>();
 
             Parse();
         }
 
+        /// <summary>
+        /// Parses the tokens in _tokens and puts the resulting program in _program.
+        /// </summary>
         private void Parse()
         {
             // first turn the whole token list into a space-separated string representation of the token names, so we can regex it
@@ -132,9 +149,13 @@ namespace ChavLang
             }
         }
 
+        /// <summary>
+        /// Parses a function definition (_functionDefintionSyntaxRegex)
+        /// </summary>
+        /// <param name="tokenCount"></param>
         private void ParseFunctionDefinition(int tokenCount)
         {
-            if (_locationStack.Peek() != Location.Program || _currentNode != _program)
+            if (_locationStack.Peek() != Location.Program || _currentNode != Program)
             {
                 throw new ParsingException("[BUG] Function definition parsing should not be reachable outside of a program location.");
             }
@@ -203,12 +224,16 @@ namespace ChavLang
             var closeParen = (CloseParenToken)tokens[index++];
             var openBrace = (OpenBraceToken)tokens[index++];
 
-            var functionNode = new FunctionNode(_program, functionName.Contents, parameters);
+            var functionNode = new FunctionNode(Program, functionName.Contents, parameters);
             _currentNode.AddChild(functionNode);
             _currentNode = functionNode;
             _locationStack.Push(Location.Function);
         }
 
+        /// <summary>
+        /// Parses a variable definition (_variableDefinitionSyntaxRegex)
+        /// </summary>
+        /// <param name="tokenCount"></param>
         private void ParseVariableDefinition(int tokenCount)
         {
             if (tokenCount != 3 && tokenCount != 5)
@@ -234,6 +259,10 @@ namespace ChavLang
             _currentNode.AddChild(variableNode);
         }
 
+        /// <summary>
+        /// Parses a close brace (_closeBraceSyntaxRegex)
+        /// </summary>
+        /// <param name="tokenCount"></param>
         private void ParseCloseBrace(int tokenCount)
         {
             if (tokenCount != 1)
@@ -244,7 +273,7 @@ namespace ChavLang
             var tokens = _remainingTokens.GetRange(0, tokenCount);
             _remainingTokens.RemoveRange(0, tokenCount);
 
-            if (_locationStack.Peek() == Location.Program || _currentNode == _program)
+            if (_locationStack.Peek() == Location.Program || _currentNode == Program)
             {
                 throw new ParsingException("[BUG] Close brace should not be reachable in a program location.");
             }
