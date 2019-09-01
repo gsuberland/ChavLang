@@ -4,9 +4,9 @@ using System.Text;
 
 namespace ChavLang
 {
-    public class LexingException : Exception
+    class ParsingException : Exception
     {
-        public LexingException(string message) : base(message)
+        public ParsingException(string message) : base(message)
         {
 
         }
