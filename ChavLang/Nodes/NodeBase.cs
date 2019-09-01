@@ -9,7 +9,7 @@ namespace ChavLang.Nodes
     public abstract class NodeBase
     {
         private readonly List<NodeBase> _children = new List<NodeBase>();
-        private readonly NodeBase _parent;
+        private NodeBase _parent;
 
         public NodeBase(NodeBase parent)
         {
@@ -19,6 +19,7 @@ namespace ChavLang.Nodes
         public NodeBase Parent
         {
             get => _parent;
+            protected internal set { _parent = value; }
         }
 
         public IEnumerable<NodeBase> Children
@@ -26,8 +27,13 @@ namespace ChavLang.Nodes
             get => _children;
         }
 
+        /// <summary>
+        /// Adds a child node to this node, and sets its parent property to this node.
+        /// </summary>
+        /// <param name="node"></param>
         public void AddChild(NodeBase node)
         {
+            node.Parent = this;
             _children.Add(node);
         }
 

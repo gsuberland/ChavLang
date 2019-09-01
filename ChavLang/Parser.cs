@@ -12,7 +12,8 @@ namespace ChavLang
     {
         private readonly Regex _variableDefinitionSyntaxRegex = new Regex(@"^TypeKeyword\sIdentifier(\sAssignment\sIntegerLiteral)?\sSemicolon");
         private readonly Regex _functionDefintionSyntaxRegex = new Regex(@"^TypeKeyword\sIdentifier\sOpenParen\s((TypeKeyword\sIdentifier)(\sComma\sTypeKeyword\sIdentifier)*\s)?CloseParen\sOpenBrace");
-        private readonly Regex _closeBraceSyntaxRegex = new Regex("^CloseBrace");
+        private readonly Regex _closeBraceSyntaxRegex = new Regex(@"^CloseBrace");
+        private readonly Regex _returnSyntaxRegex = new Regex(@"^ReturnKeyword(\s(Identifier|IntegerLiteral|UnsignedIntegerLiteral))?\sSemicolon");
 
         /// <summary>Dictionary that specifies which syntax regexes are valid for a particular location.</summary>
         private readonly Dictionary<Location, List<Regex>> _validSyntaxForLocation;
@@ -66,6 +67,7 @@ namespace ChavLang
                     {
                         _closeBraceSyntaxRegex,
                         _variableDefinitionSyntaxRegex,
+                        _returnSyntaxRegex,
                     }
                 },
             };
@@ -75,6 +77,7 @@ namespace ChavLang
             {
                 { _functionDefintionSyntaxRegex,            ParseFunctionDefinition },
                 { _variableDefinitionSyntaxRegex,           ParseVariableDefinition },
+                { _returnSyntaxRegex,                       ParseReturn },
                 { _closeBraceSyntaxRegex,                   ParseCloseBrace },
             };
 
@@ -285,6 +288,66 @@ namespace ChavLang
 
             _locationStack.Pop();
             _currentNode = _currentNode.Parent;
+        }
+
+        /// <summary>
+        /// Parses a return statement (_returnSyntaxRegex)
+        /// </summary>
+        /// <param name="tokenCount"></param>
+        private void ParseReturn(int tokenCount)
+        {
+            if (tokenCount != 2 && tokenCount != 3)
+            {
+                throw new ParsingException("[BUG] Return parsing requires either two or three tokens.");
+            }
+
+            var tokens = _remainingTokens.GetRange(0, tokenCount);
+            _remainingTokens.RemoveRange(0, tokenCount);
+
+            if (_locationStack.Peek() == Location.Program || _currentNode == Program)
+            {
+                throw new ParsingException("[BUG] Return should not be reachable in a program location.");
+            }
+
+            ReturnNode returnNode = null;
+
+            int index = 0;
+            var returnKeyword = (ReturnKeywordToken)tokens[index++];
+            if (tokenCount == 2)
+            {
+                // returning, no value
+                returnNode = new ReturnNode(_currentNode);
+            }
+            else if (tokenCount == 3)
+            {
+                var returnValueToken = tokens[index++];
+                if (returnValueToken is IntegerLiteralToken)
+                {
+                    // returning an int
+                    returnNode = new ReturnNode(_currentNode, new IntNode(null, (returnValueToken as IntegerLiteralToken).Value));
+                }
+                else if (returnValueToken is UnsignedIntegerLiteralToken)
+                {
+                    // returning an uint
+                    returnNode = new ReturnNode(_currentNode, new UIntNode(null, (returnValueToken as UnsignedIntegerLiteralToken).Value));
+                }
+                else if (returnValueToken is IdentifierToken)
+                {
+                    // returning an identifier
+                    returnNode = new ReturnNode(_currentNode, new IdentifierNode(null, (returnValueToken as IdentifierToken).Contents));
+                }
+                else
+                {
+                    throw new ParsingException("[BUG] Return token was passed with unexpected value token.");
+                }
+            }
+
+            if (returnNode == null)
+            {
+                throw new ParsingException("[BUG] Return node was not generated.");
+            }
+
+            _currentNode.AddChild(returnNode);
         }
     }
 }

@@ -73,6 +73,32 @@ int main() {
         }
 
         [Fact]
+        public void ProgramLexesUnsignedReturnValue()
+        {
+            string code = @"
+int main() {
+    return 2u;
+}
+";
+            var programTokens = new List<TokenBase>
+            {
+                new TypeKeywordToken("int"),
+                new IdentifierToken("main"),
+                new OpenParenToken("("),
+                new CloseParenToken(")"),
+                new OpenBraceToken("{"),
+
+                new ReturnKeywordToken("return"),
+                new UnsignedIntegerLiteralToken("2u"),
+                new SemicolonToken(";"),
+
+                new CloseBraceToken("}")
+            };
+
+            AssertResultMatchesExpectedTokens(code, programTokens);
+        }
+
+        [Fact]
         public void ProgramLexes2()
         {
             string code = @"

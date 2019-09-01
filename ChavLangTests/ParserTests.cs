@@ -20,7 +20,9 @@ namespace ChavLangTests
             List<TokenBase> tokens = lexer.Lex(program);
             Parser parser = new Parser(tokens);
             ProgramNode actualProgram = parser.Program;
-            Assert.Equal(expectedProgram.GetProgramTreeString(), actualProgram.GetProgramTreeString());
+            string expectedTree = expectedProgram.GetProgramTreeString();
+            string actualTree = actualProgram.GetProgramTreeString();
+            Assert.Equal(expectedTree, actualTree);
         }
 
         [Fact]
@@ -96,6 +98,85 @@ int main()
             var program = new ProgramNode();
             var function = new FunctionNode(program, "main", new List<FunctionParameter>());
             function.AddChild(new VariableDeclarationNode(function, "int", "foo", "5"));
+            program.AddChild(function);
+
+            AssertResultMatchesExpectedProgram(code, program);
+        }
+
+        [Fact]
+        public void ProgramParsesReturnStatement()
+        {
+            string code = @"
+int main()
+{
+    return;
+}
+";
+            var program = new ProgramNode();
+            var function = new FunctionNode(program, "main", new List<FunctionParameter>());
+            var returnStatement = new ReturnNode(function);
+            function.AddChild(returnStatement);
+            program.AddChild(function);
+
+            AssertResultMatchesExpectedProgram(code, program);
+        }
+
+        [Fact]
+        public void ProgramParsesReturnStatementWithInteger()
+        {
+            string code = @"
+int main()
+{
+    return 420;
+}
+";
+            var program = new ProgramNode();
+            var function = new FunctionNode(program, "main", new List<FunctionParameter>());
+            var returnStatement = new ReturnNode(function);
+            var returnValue = new IntNode(returnStatement, 420);
+            returnStatement.AddChild(returnValue);
+            function.AddChild(returnStatement);
+            program.AddChild(function);
+
+            AssertResultMatchesExpectedProgram(code, program);
+        }
+
+        [Fact]
+        public void ProgramParsesReturnStatementWithUnsignedInteger()
+        {
+            string code = @"
+int main()
+{
+    return 420u;
+}
+";
+            var program = new ProgramNode();
+            var function = new FunctionNode(program, "main", new List<FunctionParameter>());
+            var returnStatement = new ReturnNode(function);
+            var returnValue = new UIntNode(returnStatement, 420u);
+            returnStatement.AddChild(returnValue);
+            function.AddChild(returnStatement);
+            program.AddChild(function);
+
+            AssertResultMatchesExpectedProgram(code, program);
+        }
+
+        [Fact]
+        public void ProgramParsesReturnStatementWithIdentifier()
+        {
+            string code = @"int foo = 420;
+int main()
+{
+    return foo;
+}
+";
+            var program = new ProgramNode();
+            program.AddChild(new VariableDeclarationNode(program, "int", "foo", "420"));
+            var function = new FunctionNode(program, "main", new List<FunctionParameter>());
+            var returnStatement = new ReturnNode(function);
+            var returnValue = new IdentifierNode(returnStatement, "foo");
+            returnStatement.AddChild(returnValue);
+            function.AddChild(returnStatement);
             program.AddChild(function);
 
             AssertResultMatchesExpectedProgram(code, program);

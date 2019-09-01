@@ -36,6 +36,7 @@ namespace ChavLang
         private readonly Regex _ifKeywordTokenRegex                 = new Regex(WhitespaceRegex + @"(if)" + NonIdentifierRegex);
         private readonly Regex _elseKeywordTokenRegex               = new Regex(WhitespaceRegex + @"(else)" + NonIdentifierRegex);
         private readonly Regex _identifierTokenRegex				= new Regex(WhitespaceRegex + @"([a-zA-Z_][a-zA-Z0-9_]*)");
+        private readonly Regex _unsignedIntegerLiteralTokenRegex	= new Regex(WhitespaceRegex + @"([0-9]+u)");
         private readonly Regex _integerLiteralTokenRegex			= new Regex(WhitespaceRegex + @"([0-9]+)");
 
         private readonly Dictionary<Regex, Type> _tokenPatternMap;
@@ -79,6 +80,7 @@ namespace ChavLang
                 { _ifKeywordTokenRegex,                 typeof(IfKeywordToken) },
                 { _elseKeywordTokenRegex,               typeof(ElseKeywordToken) },
                 { _identifierTokenRegex,                typeof(IdentifierToken) },
+                { _unsignedIntegerLiteralTokenRegex,    typeof(UnsignedIntegerLiteralToken) },
                 { _integerLiteralTokenRegex,            typeof(IntegerLiteralToken) },
             };
         }

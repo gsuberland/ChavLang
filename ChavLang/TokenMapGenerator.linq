@@ -59,10 +59,11 @@ string[] tokens = {
 	"AssignmentToken", 
 	"TypeKeywordToken", 
 	"ReturnKeywordToken", 
-	"IfKeywordToken", 
-	"ElseKeywordToken", 
-	"IdentifierToken", 
-	"IntegerLiteralToken"
+	"IfKeywordToken",
+	"ElseKeywordToken",
+	"IdentifierToken",
+	"UnsignedIntegerLiteralToken",
+	"IntegerLiteralToken",
 };
 
 foreach (string token in tokens)
@@ -82,7 +83,7 @@ foreach (string token in tokens)
 {
 	string regexName = @"{ _" + token.First().ToString().ToLower() + token.Substring(1) + "Regex,";
 	regexName = regexName.PadRight(40);
-	tokenMap.AppendLine("\t" + regexName + "typeof(" + token + ") },");
+	tokenMap.AppendLine("    " + regexName + "typeof(" + token + ") },");
 }
 tokenMap.AppendLine("};");
 Console.WriteLine(tokenMap.ToString());
