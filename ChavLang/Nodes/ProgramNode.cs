@@ -11,8 +11,35 @@ namespace ChavLang.Nodes
 
         }
 
+        /// <summary>
+        /// Throws an exception if the parent-child relationship of any node in the program has become corrupted.
+        /// </summary>
+        public void ValidateTree()
+        {
+            var remainingNodes = new Stack<NodeBase>();
+            remainingNodes.Push(this);
+            while (remainingNodes.Count > 0)
+            {
+                var currentNode = remainingNodes.Pop();
+                foreach (var childNode in currentNode.Children)
+                {
+                    if (childNode.Parent != currentNode)
+                    {
+                        throw new Exception("[BUG] Node parent structure corrupted.");
+                    }
+                    remainingNodes.Push(childNode);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Get a human-readable tree representation of the current program.
+        /// </summary>
+        /// <returns></returns>
         public string GetProgramTreeString()
         {
+            ValidateTree();
+
             var output = new StringBuilder();
 
             var nodesToPrint = new Stack<Tuple<int, NodeBase>>();

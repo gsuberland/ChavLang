@@ -52,6 +52,7 @@ namespace ChavLang
                     new List<Regex>
                     {
                         _closeBraceSyntaxRegex,
+                        _variableDefinitionSyntaxRegex,
                     }
                 },
             };
@@ -135,7 +136,12 @@ namespace ChavLang
         {
             if (_locationStack.Peek() != Location.Program || _currentNode != _program)
             {
-                throw new ParsingException("[BUG] Function parsing should not be reachable outside of a program location.");
+                throw new ParsingException("[BUG] Function definition parsing should not be reachable outside of a program location.");
+            }
+
+            if (tokenCount < 5)
+            {
+                throw new ParsingException("[BUG] Function definition parsing requires a minimum of five tokens.");
             }
 
             var tokens = _remainingTokens.GetRange(0, tokenCount);
@@ -205,15 +211,37 @@ namespace ChavLang
 
         private void ParseVariableDefinition(int tokenCount)
         {
-            _remainingTokens.GetRange(0, tokenCount);
+            if (tokenCount != 3 && tokenCount != 5)
+            {
+                throw new ParsingException("[BUG] Variable definition parsing requires either three or five tokens.");
+            }
+
+            var tokens = _remainingTokens.GetRange(0, tokenCount);
             _remainingTokens.RemoveRange(0, tokenCount);
 
-            // todo
+            int index = 0;
+            var variableType = (TypeKeywordToken)tokens[index++];
+            var variableName = (IdentifierToken)tokens[index++];
+            string variableDefaultValue = null;
+            if (tokenCount == 5)
+            {
+                var assign = (AssignmentToken)tokens[index++];
+                var variableValue = (IntegerLiteralToken)tokens[index++];
+                variableDefaultValue = variableValue.Contents;
+            }
+
+            var variableNode = new VariableDeclarationNode(_currentNode, variableType.Contents, variableName.Contents, variableDefaultValue);
+            _currentNode.AddChild(variableNode);
         }
 
         private void ParseCloseBrace(int tokenCount)
         {
-            _remainingTokens.GetRange(0, tokenCount);
+            if (tokenCount != 1)
+            {
+                throw new ParsingException("[BUG] Close brace parsing requires exactly one token.");
+            }
+
+            var tokens = _remainingTokens.GetRange(0, tokenCount);
             _remainingTokens.RemoveRange(0, tokenCount);
 
             if (_locationStack.Peek() == Location.Program || _currentNode == _program)
