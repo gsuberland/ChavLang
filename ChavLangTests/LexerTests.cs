@@ -35,10 +35,10 @@ namespace GenericCompilerTests
         }
 #endif
 
-        private void AssertProgramMatchesExpectedTokens(string program, List<TokenBase> expectedTokens)
+        private void AssertResultMatchesExpectedTokens(string code, List<TokenBase> expectedTokens)
         {
             Lexer lexer = new Lexer();
-            List<TokenBase> tokens = lexer.Lex(program);
+            List<TokenBase> tokens = lexer.Lex(code);
             bool equal = tokens.SequenceEqual(expectedTokens, LambdaEqualityComparer<TokenBase>.Create(
                 (a, b) => a.GetType() == b.GetType() && a.Contents == b.Contents
             ));
@@ -47,9 +47,9 @@ namespace GenericCompilerTests
         }
 
         [Fact]
-        public void LexerParsesProgram1()
+        public void ProgramLexes1()
         {
-            string program = @"
+            string code = @"
 int main() {
     return 2;
 }
@@ -69,13 +69,13 @@ int main() {
                 new CloseBraceToken("}")
             };
 
-            AssertProgramMatchesExpectedTokens(program, programTokens);
+            AssertResultMatchesExpectedTokens(code, programTokens);
         }
 
         [Fact]
-        public void LexerParsesProgram2()
+        public void ProgramLexes2()
         {
-            string program = @"
+            string code = @"
 int main(int a, int b) {
     return 2;
 }
@@ -100,13 +100,13 @@ int main(int a, int b) {
                 new CloseBraceToken("}")
             };
 
-            AssertProgramMatchesExpectedTokens(program, programTokens);
+            AssertResultMatchesExpectedTokens(code, programTokens);
         }
 
         [Fact]
-        public void LexerParsesProgram3()
+        public void ProgramLexes3()
         {
-            string program = @"
+            string code = @"
 int main() {
     uint returnValue = 69;
     return (int)returnValue;
@@ -136,13 +136,13 @@ int main() {
                 new CloseBraceToken("}")
             };
 
-            AssertProgramMatchesExpectedTokens(program, programTokens);
+            AssertResultMatchesExpectedTokens(code, programTokens);
         }
 
         [Fact]
-        public void LexerParsesProgram4()
+        public void ProgramLexes4()
         {
-            string program = @"
+            string code = @"
 int main() {
     int a = 2;
     if (a & 1 == 0)
@@ -188,7 +188,7 @@ int main() {
                 new CloseBraceToken("}")
             };
 
-            AssertProgramMatchesExpectedTokens(program, programTokens);
+            AssertResultMatchesExpectedTokens(code, programTokens);
         }
 
     }

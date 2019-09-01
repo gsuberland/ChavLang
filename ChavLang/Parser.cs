@@ -10,11 +10,12 @@ namespace ChavLang
 {
     public class Parser
     {
-        private readonly Regex _variableDefinitionSyntaxRegex = new Regex(@"^TypeKeyword Identifier (Assignment IntegerLiteral)? Semicolon");
-        private readonly Regex _functionDefintionSyntaxRegex = new Regex(@"^TypeKeyword Identifier OpenParen ((TypeKeyword Identifier) (Comma TypeKeyword Identifier)*)? OpenBrace");
+        private readonly Regex _variableDefinitionSyntaxRegex = new Regex(@"^TypeKeyword\sIdentifier(\sAssignment\sIntegerLiteral)?\sSemicolon");
+        private readonly Regex _functionDefintionSyntaxRegex = new Regex(@"^TypeKeyword\sIdentifier\sOpenParen\s((TypeKeyword\sIdentifier)(\sComma\sTypeKeyword\sIdentifier)*\s)?CloseParen\sOpenBrace");
+        private readonly Regex _closeBraceSyntaxRegex = new Regex("^CloseBrace");
 
         private readonly Dictionary<Location, List<Regex>> _validSyntaxForLocation;
-        private readonly Dictionary<Regex, Action> _syntaxHandlers;
+        private readonly Dictionary<Regex, Action<int>> _syntaxHandlers;
 
         private enum Location
         {
@@ -25,8 +26,13 @@ namespace ChavLang
         private readonly List<TokenBase> _tokens;
         private readonly List<TokenBase> _remainingTokens;
         private readonly ProgramNode _program;
-        private readonly NodeBase _currentNode;
+        private NodeBase _currentNode;
         private readonly Stack<Location> _locationStack;
+
+        public ProgramNode Program
+        {
+            get => _program;
+        }
 
         public Parser(IEnumerable<TokenBase> tokens)
         {
@@ -41,11 +47,20 @@ namespace ChavLang
                         _variableDefinitionSyntaxRegex,
                     }
                 },
+                {
+                    Location.Function,
+                    new List<Regex>
+                    {
+                        _closeBraceSyntaxRegex,
+                    }
+                },
             };
 
-            _syntaxHandlers = new Dictionary<Regex, Action>
+            _syntaxHandlers = new Dictionary<Regex, Action<int>>
             {
-                { _variableDefinitionSyntaxRegex, ParseVariableDefinition }
+                { _functionDefintionSyntaxRegex, ParseFunctionDefinition },
+                { _variableDefinitionSyntaxRegex, ParseVariableDefinition },
+                { _closeBraceSyntaxRegex, ParseCloseBrace },
             };
 
             _tokens = new List<TokenBase>(tokens);
@@ -57,7 +72,7 @@ namespace ChavLang
             Parse();
         }
 
-        public void Parse()
+        private void Parse()
         {
             // first turn the whole token list into a space-separated string representation of the token names, so we can regex it
             var tokenStringBuilder = new StringBuilder();
@@ -101,7 +116,7 @@ namespace ChavLang
 
                         // call the parsing function for this particular syntax
                         var parsingFunction = _syntaxHandlers[syntaxRegex];
-                        parsingFunction();
+                        parsingFunction(matchedTokenCount);
 
                         success = true;
                         break;
@@ -111,19 +126,108 @@ namespace ChavLang
                 if (!success)
                 {
                     // todo: make this throw a more useful exception
-                    throw new ParsingException("Invalid syntax.");
+                    throw new ParsingException("Invalid syntax, could not parse program.");
                 }
             }
         }
 
-        private void ParseFunctionDefinition()
+        private void ParseFunctionDefinition(int tokenCount)
         {
+            if (_locationStack.Peek() != Location.Program || _currentNode != _program)
+            {
+                throw new ParsingException("[BUG] Function parsing should not be reachable outside of a program location.");
+            }
 
+            var tokens = _remainingTokens.GetRange(0, tokenCount);
+            _remainingTokens.RemoveRange(0, tokenCount);
+
+            int index = 0;
+            var returnType = (TypeKeywordToken)tokens[index++];
+            var functionName = (IdentifierToken)tokens[index++];
+            var openParen = (OpenParenToken)tokens[index++];
+            var parameters = new List<FunctionParameter>();
+
+            // handle the parameters
+            if (tokenCount == 5)
+            {
+                // no parameters => TypeKeyword Identifier OpenParen CloseParen OpenBrace
+                // nothing to do here
+            }
+            else if (tokenCount == 7)
+            {
+                // one parameter => TypeKeyword Identifier OpenParen TypeKeyword Identifier CloseParen OpenBrace
+                var paramType = (TypeKeywordToken)tokens[index++];
+                var paramName = (IdentifierToken)tokens[index++];
+                parameters.Add(new FunctionParameter
+                {
+                    Type = paramType.Contents,
+                    Name = paramName.Contents
+                });
+            }
+            else
+            {
+                // many parameters => TypeKeyword Identifier OpenParen TypeKeyword Identifier (Comma TypeKeyword Identifier)+ CloseParen OpenBrace
+                if ((tokenCount - 7) % 3 != 0)
+                {
+                    throw new ParsingException("[BUG] Invalid function parameters in function definition.");
+                }
+                int paramCount = (tokenCount - 7) / 3;
+
+                var firstParamType = (TypeKeywordToken)tokens[index++];
+                var firstParamName = (IdentifierToken)tokens[index++];
+                parameters.Add(new FunctionParameter
+                {
+                    Type = firstParamType.Contents,
+                    Name = firstParamName.Contents
+                });
+
+                for (int p = 0; p < paramCount - 1; p++)
+                {
+                    var comma = (CommaToken)tokens[index++];
+                    var paramType = (TypeKeywordToken)tokens[index++];
+                    var paramName = (IdentifierToken)tokens[index++];
+                    parameters.Add(new FunctionParameter
+                    {
+                        Type = paramType.Contents,
+                        Name = paramName.Contents
+                    });
+                }
+            }
+
+            var closeParen = (CloseParenToken)tokens[index++];
+            var openBrace = (OpenBraceToken)tokens[index++];
+
+            var functionNode = new FunctionNode(_program, functionName.Contents, parameters);
+            _currentNode.AddChild(functionNode);
+            _currentNode = functionNode;
+            _locationStack.Push(Location.Function);
         }
 
-        private void ParseVariableDefinition()
+        private void ParseVariableDefinition(int tokenCount)
         {
+            _remainingTokens.GetRange(0, tokenCount);
+            _remainingTokens.RemoveRange(0, tokenCount);
 
+            // todo
+        }
+
+        private void ParseCloseBrace(int tokenCount)
+        {
+            _remainingTokens.GetRange(0, tokenCount);
+            _remainingTokens.RemoveRange(0, tokenCount);
+
+            if (_locationStack.Peek() == Location.Program || _currentNode == _program)
+            {
+                throw new ParsingException("[BUG] Close brace should not be reachable in a program location.");
+            }
+
+            if (_currentNode.Parent == null)
+            {
+                throw new ParsingException("[BUG] Parent node must not be null.");
+            }
+
+            _locationStack.Pop();
+            _currentNode = _currentNode.Parent;
         }
     }
 }
